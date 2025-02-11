@@ -3,6 +3,7 @@ package gocache
 import (
 	"errors"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/mekramy/gocast"
@@ -14,15 +15,22 @@ type memoryRecord struct {
 }
 
 type memoryCache struct {
-	data map[string]memoryRecord
+	data  map[string]memoryRecord
+	mutex sync.RWMutex
 }
 
 func (driver *memoryCache) read(key string) (*memoryRecord, bool) {
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Read key
 	val, ok := driver.data[key]
 	if !ok {
 		return nil, false
 	}
 
+	// Delete key if expired
 	if val.expiry != nil && val.expiry.Before(time.Now()) {
 		delete(driver.data, key)
 		return nil, false
@@ -32,11 +40,18 @@ func (driver *memoryCache) read(key string) (*memoryRecord, bool) {
 }
 
 func (driver *memoryCache) Put(key string, value any, ttl *time.Duration) error {
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Calculate expiry
 	var expiry *time.Time = nil
 	if ttl != nil {
 		exp := time.Now().Add(*ttl)
 		expiry = &exp
 	}
+
+	// Store data
 	driver.data[key] = memoryRecord{
 		data:   value,
 		expiry: expiry,
@@ -45,11 +60,17 @@ func (driver *memoryCache) Put(key string, value any, ttl *time.Duration) error 
 }
 
 func (driver *memoryCache) Set(key string, value any) (bool, error) {
+	// Check existence
 	record, exists := driver.read(key)
 	if !exists {
 		return false, nil
 	}
 
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Store data
 	record.data = value
 	driver.data[key] = *record
 	return true, nil
@@ -69,6 +90,7 @@ func (driver *memoryCache) Override(key string, value any, ttl *time.Duration) e
 }
 
 func (driver *memoryCache) Get(key string) (any, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return nil, nil
@@ -78,11 +100,13 @@ func (driver *memoryCache) Get(key string) (any, error) {
 }
 
 func (driver *memoryCache) Pull(key string) (any, error) {
+	// Read
 	val, err := driver.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
+	// Delete
 	err = driver.Forget(key)
 	if err != nil {
 		return nil, err
@@ -92,6 +116,7 @@ func (driver *memoryCache) Pull(key string) (any, error) {
 }
 
 func (driver *memoryCache) Cast(key string) (gocast.Caster, error) {
+	// Read
 	val, err := driver.Get(key)
 	if err != nil {
 		return gocast.NewCaster(nil), err
@@ -106,16 +131,23 @@ func (driver *memoryCache) Exists(key string) (bool, error) {
 }
 
 func (driver *memoryCache) Forget(key string) error {
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Delete
 	delete(driver.data, key)
 	return nil
 }
 
 func (driver *memoryCache) TTL(key string) (time.Duration, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return 0, nil
 	}
 
+	// Calculate ttl
 	if record.expiry == nil {
 		return time.Duration(math.MaxInt64), nil
 	} else {
@@ -124,68 +156,96 @@ func (driver *memoryCache) TTL(key string) (time.Duration, error) {
 }
 
 func (driver *memoryCache) Increment(key string, value int64) (bool, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return false, nil
 	}
 
+	// Cast
 	caster := gocast.NewCaster(record.data)
 	num, err := caster.Int64()
 	if err != nil {
 		return false, errors.New("value is not numeric")
 	}
 
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Store
 	record.data = num + value
 	driver.data[key] = *record
 	return true, nil
 }
 
 func (driver *memoryCache) Decrement(key string, value int64) (bool, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return false, nil
 	}
 
+	// Cast
 	caster := gocast.NewCaster(record.data)
 	num, err := caster.Int64()
 	if err != nil {
 		return false, errors.New("value is not numeric")
 	}
 
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Store
 	record.data = num - value
 	driver.data[key] = *record
 	return true, nil
 }
 
 func (driver *memoryCache) IncrementFloat(key string, value float64) (bool, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return false, nil
 	}
 
+	// Cast
 	caster := gocast.NewCaster(record.data)
 	num, err := caster.Float64()
 	if err != nil {
 		return false, errors.New("value is not numeric")
 	}
 
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Store
 	record.data = num + value
 	driver.data[key] = *record
 	return true, nil
 }
 
 func (driver *memoryCache) DecrementFloat(key string, value float64) (bool, error) {
+	// Read
 	record, exists := driver.read(key)
 	if !exists {
 		return false, nil
 	}
 
+	// Cast
 	caster := gocast.NewCaster(record.data)
 	num, err := caster.Float64()
 	if err != nil {
 		return false, errors.New("value is not numeric")
 	}
 
+	// Safe race condition
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	// Store
 	record.data = num - value
 	driver.data[key] = *record
 	return true, nil
