@@ -11,42 +11,42 @@ type limiter struct {
 	cache       Cache
 }
 
-func (driver limiter) Hit() error {
-	exists, err := driver.cache.Decrement(driver.name, 1)
+func (l limiter) Hit() error {
+	exists, err := l.cache.Decrement(l.name, 1)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		return driver.cache.Put(driver.name, driver.maxAttempts-1, &driver.ttl)
+		return l.cache.Put(l.name, l.maxAttempts-1, &l.ttl)
 	}
 
 	return nil
 }
 
-func (driver limiter) Lock() error {
-	exists, err := driver.cache.Set(driver.name, 0)
+func (l limiter) Lock() error {
+	exists, err := l.cache.Set(l.name, 0)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		return driver.cache.Put(driver.name, 0, &driver.ttl)
+		return l.cache.Put(l.name, 0, &l.ttl)
 	}
 
 	return nil
 }
 
-func (driver limiter) Reset() error {
-	return driver.cache.Put(driver.name, driver.maxAttempts, &driver.ttl)
+func (l limiter) Reset() error {
+	return l.cache.Put(l.name, l.maxAttempts, &l.ttl)
 }
 
-func (driver limiter) Clear() error {
-	return driver.cache.Forget(driver.name)
+func (l limiter) Clear() error {
+	return l.cache.Forget(l.name)
 }
 
-func (driver limiter) MustLock() (bool, error) {
-	caster, err := driver.cache.Cast(driver.name)
+func (l limiter) MustLock() (bool, error) {
+	caster, err := l.cache.Cast(l.name)
 	if err != nil {
 		return true, err
 	}
@@ -63,8 +63,8 @@ func (driver limiter) MustLock() (bool, error) {
 	return num <= 0, nil
 }
 
-func (driver limiter) TotalAttempts() (uint32, error) {
-	caster, err := driver.cache.Cast(driver.name)
+func (l limiter) TotalAttempts() (uint32, error) {
+	caster, err := l.cache.Cast(l.name)
 	if err != nil {
 		return 0, err
 	}
@@ -78,15 +78,15 @@ func (driver limiter) TotalAttempts() (uint32, error) {
 		return 0, err
 	}
 
-	if num < int(driver.maxAttempts) {
-		num = int(driver.maxAttempts)
+	if num < int(l.maxAttempts) {
+		num = int(l.maxAttempts)
 	}
 
-	return driver.maxAttempts - uint32(num), nil
+	return l.maxAttempts - uint32(num), nil
 }
 
-func (driver limiter) RetriesLeft() (uint32, error) {
-	caster, err := driver.cache.Cast(driver.name)
+func (l limiter) RetriesLeft() (uint32, error) {
+	caster, err := l.cache.Cast(l.name)
 	if err != nil {
 		return 0, err
 	}
@@ -108,8 +108,8 @@ func (driver limiter) RetriesLeft() (uint32, error) {
 
 }
 
-func (driver limiter) AvailableIn() (time.Duration, error) {
-	ttl, err := driver.cache.TTL(driver.name)
+func (l limiter) AvailableIn() (time.Duration, error) {
+	ttl, err := l.cache.TTL(l.name)
 	if err != nil {
 		return 0, err
 	}

@@ -13,18 +13,18 @@ type redisQueue struct {
 	client *redis.Client
 }
 
-func (driver redisQueue) Push(value any) error {
-	return driver.client.LPush(
+func (r redisQueue) Push(value any) error {
+	return r.client.LPush(
 		context.Background(),
-		driver.name,
+		r.name,
 		value,
 	).Err()
 }
 
-func (driver redisQueue) Pull() (any, error) {
-	val, err := driver.client.LPop(
+func (r redisQueue) Pull() (any, error) {
+	val, err := r.client.LPop(
 		context.Background(),
-		driver.name,
+		r.name,
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -38,10 +38,10 @@ func (driver redisQueue) Pull() (any, error) {
 	return val, nil
 }
 
-func (driver redisQueue) Pop() (any, error) {
-	val, err := driver.client.RPop(
+func (r redisQueue) Pop() (any, error) {
+	val, err := r.client.RPop(
 		context.Background(),
-		driver.name,
+		r.name,
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -55,10 +55,10 @@ func (driver redisQueue) Pop() (any, error) {
 	return val, nil
 }
 
-func (driver redisQueue) Length() (int64, error) {
-	val, err := driver.client.LLen(
+func (r redisQueue) Length() (int64, error) {
+	val, err := r.client.LLen(
 		context.Background(),
-		driver.name,
+		r.name,
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -72,7 +72,7 @@ func (driver redisQueue) Length() (int64, error) {
 	return val, nil
 }
 
-func (driver redisQueue) Cast() (gocast.Caster, error) {
-	val, err := driver.Pull()
+func (r redisQueue) Cast() (gocast.Caster, error) {
+	val, err := r.Pull()
 	return gocast.NewCaster(val), err
 }

@@ -14,28 +14,28 @@ type redisCache struct {
 	client *redis.Client
 }
 
-func (driver *redisCache) prefixer(key string) string {
-	return cacheKey(driver.prefix, key)
+func (r *redisCache) prefixer(key string) string {
+	return cacheKey(r.prefix, key)
 }
 
-func (driver *redisCache) Put(key string, value any, ttl *time.Duration) error {
-	return driver.client.Set(
+func (r *redisCache) Put(key string, value any, ttl *time.Duration) error {
+	return r.client.Set(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		value,
 		safeValue(ttl, 0),
 	).Err()
 }
 
-func (driver *redisCache) Set(key string, value any) (bool, error) {
-	exists, err := driver.Exists(key)
+func (r *redisCache) Set(key string, value any) (bool, error) {
+	exists, err := r.Exists(key)
 	if err != nil || !exists {
 		return false, err
 	}
 
-	err = driver.client.Set(
+	err = r.client.Set(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		value,
 		redis.KeepTTL,
 	).Err()
@@ -46,23 +46,23 @@ func (driver *redisCache) Set(key string, value any) (bool, error) {
 	return true, nil
 }
 
-func (driver *redisCache) Override(key string, value any, ttl *time.Duration) error {
-	ok, err := driver.Set(key, value)
+func (r *redisCache) Override(key string, value any, ttl *time.Duration) error {
+	ok, err := r.Set(key, value)
 	if err != nil {
 		return err
 	}
 
 	if !ok {
-		return driver.Put(key, value, ttl)
+		return r.Put(key, value, ttl)
 	}
 
 	return nil
 }
 
-func (driver *redisCache) Get(key string) (any, error) {
-	val, err := driver.client.Get(
+func (r *redisCache) Get(key string) (any, error) {
+	val, err := r.client.Get(
 		context.TODO(),
-		driver.prefixer(key),
+		r.prefixer(key),
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -76,13 +76,13 @@ func (driver *redisCache) Get(key string) (any, error) {
 	return val, nil
 }
 
-func (driver *redisCache) Pull(key string) (any, error) {
-	val, err := driver.Get(key)
+func (r *redisCache) Pull(key string) (any, error) {
+	val, err := r.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
-	err = driver.Forget(key)
+	err = r.Forget(key)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +90,8 @@ func (driver *redisCache) Pull(key string) (any, error) {
 	return val, nil
 }
 
-func (driver *redisCache) Cast(key string) (gocast.Caster, error) {
-	val, err := driver.Get(key)
+func (r *redisCache) Cast(key string) (gocast.Caster, error) {
+	val, err := r.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -99,10 +99,10 @@ func (driver *redisCache) Cast(key string) (gocast.Caster, error) {
 	return gocast.NewCaster(val), nil
 }
 
-func (driver *redisCache) Exists(key string) (bool, error) {
-	exists, err := driver.client.Exists(
+func (r *redisCache) Exists(key string) (bool, error) {
+	exists, err := r.client.Exists(
 		context.TODO(),
-		driver.prefixer(key),
+		r.prefixer(key),
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -116,10 +116,10 @@ func (driver *redisCache) Exists(key string) (bool, error) {
 	return exists > 0, nil
 }
 
-func (driver *redisCache) Forget(key string) error {
-	err := driver.client.Del(
+func (r *redisCache) Forget(key string) error {
+	err := r.client.Del(
 		context.TODO(),
-		driver.prefixer(key),
+		r.prefixer(key),
 	).Err()
 
 	if errors.Is(err, redis.Nil) {
@@ -129,10 +129,10 @@ func (driver *redisCache) Forget(key string) error {
 	return err
 }
 
-func (driver *redisCache) TTL(key string) (time.Duration, error) {
-	ttl, err := driver.client.TTL(
+func (r *redisCache) TTL(key string) (time.Duration, error) {
+	ttl, err := r.client.TTL(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 	).Result()
 
 	if errors.Is(err, redis.Nil) {
@@ -146,15 +146,15 @@ func (driver *redisCache) TTL(key string) (time.Duration, error) {
 	return ttl, nil
 }
 
-func (driver *redisCache) Increment(key string, value int64) (bool, error) {
-	exists, err := driver.Exists(key)
+func (r *redisCache) Increment(key string, value int64) (bool, error) {
+	exists, err := r.Exists(key)
 	if err != nil || !exists {
 		return exists, err
 	}
 
-	err = driver.client.IncrBy(
+	err = r.client.IncrBy(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		value,
 	).Err()
 	if err != nil {
@@ -164,15 +164,15 @@ func (driver *redisCache) Increment(key string, value int64) (bool, error) {
 	return true, nil
 }
 
-func (driver *redisCache) Decrement(key string, value int64) (bool, error) {
-	exists, err := driver.Exists(key)
+func (r *redisCache) Decrement(key string, value int64) (bool, error) {
+	exists, err := r.Exists(key)
 	if err != nil || !exists {
 		return exists, err
 	}
 
-	err = driver.client.DecrBy(
+	err = r.client.DecrBy(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		value,
 	).Err()
 	if err != nil {
@@ -182,15 +182,15 @@ func (driver *redisCache) Decrement(key string, value int64) (bool, error) {
 	return true, nil
 }
 
-func (driver *redisCache) IncrementFloat(key string, value float64) (bool, error) {
-	exists, err := driver.Exists(key)
+func (r *redisCache) IncrementFloat(key string, value float64) (bool, error) {
+	exists, err := r.Exists(key)
 	if err != nil || !exists {
 		return exists, err
 	}
 
-	err = driver.client.IncrByFloat(
+	err = r.client.IncrByFloat(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		value,
 	).Err()
 	if err != nil {
@@ -200,15 +200,15 @@ func (driver *redisCache) IncrementFloat(key string, value float64) (bool, error
 	return true, nil
 }
 
-func (driver *redisCache) DecrementFloat(key string, value float64) (bool, error) {
-	exists, err := driver.Exists(key)
+func (r *redisCache) DecrementFloat(key string, value float64) (bool, error) {
+	exists, err := r.Exists(key)
 	if err != nil || !exists {
 		return exists, err
 	}
 
-	err = driver.client.IncrByFloat(
+	err = r.client.IncrByFloat(
 		context.Background(),
-		driver.prefixer(key),
+		r.prefixer(key),
 		-value,
 	).Err()
 	if err != nil {

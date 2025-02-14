@@ -8,26 +8,26 @@ type verification struct {
 	cache Cache
 }
 
-func (driver verification) Set(code string) error {
-	exists, err := driver.cache.Set(driver.name, code)
+func (v verification) Set(code string) error {
+	exists, err := v.cache.Set(v.name, code)
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		return driver.cache.Put(driver.name, code, &driver.ttl)
+		return v.cache.Put(v.name, code, &v.ttl)
 	}
 
 	return nil
 }
 
-func (driver verification) Generate(count uint) (string, error) {
+func (v verification) Generate(count uint) (string, error) {
 	code, err := randomString(count, "0123456789")
 	if err != nil {
 		return "", err
 	}
 
-	err = driver.Set(code)
+	err = v.Set(code)
 	if err != nil {
 		return "", err
 	}
@@ -35,12 +35,12 @@ func (driver verification) Generate(count uint) (string, error) {
 	return code, nil
 }
 
-func (driver verification) Clear() error {
-	return driver.cache.Forget(driver.name)
+func (v verification) Clear() error {
+	return v.cache.Forget(v.name)
 }
 
-func (driver verification) Get() (string, error) {
-	caster, err := driver.cache.Cast(driver.name)
+func (v verification) Get() (string, error) {
+	caster, err := v.cache.Cast(v.name)
 	if err != nil {
 		return "", err
 	}
@@ -57,12 +57,12 @@ func (driver verification) Get() (string, error) {
 	return code, nil
 }
 
-func (driver verification) Exists() (bool, error) {
-	return driver.cache.Exists(driver.name)
+func (v verification) Exists() (bool, error) {
+	return v.cache.Exists(v.name)
 }
 
-func (driver verification) TTL() (time.Duration, error) {
-	ttl, err := driver.cache.TTL(driver.name)
+func (v verification) TTL() (time.Duration, error) {
+	ttl, err := v.cache.TTL(v.name)
 	if err != nil {
 		return 0, err
 	}

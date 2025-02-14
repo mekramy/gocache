@@ -19,30 +19,30 @@ type memoryCache struct {
 	mutex sync.RWMutex
 }
 
-func (driver *memoryCache) read(key string) (*memoryRecord, bool) {
+func (m *memoryCache) read(key string) (*memoryRecord, bool) {
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Read key
-	val, ok := driver.data[key]
+	val, ok := m.data[key]
 	if !ok {
 		return nil, false
 	}
 
 	// Delete key if expired
 	if val.expiry != nil && val.expiry.Before(time.Now()) {
-		delete(driver.data, key)
+		delete(m.data, key)
 		return nil, false
 	}
 
 	return &val, true
 }
 
-func (driver *memoryCache) Put(key string, value any, ttl *time.Duration) error {
+func (m *memoryCache) Put(key string, value any, ttl *time.Duration) error {
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Calculate expiry
 	var expiry *time.Time = nil
@@ -52,46 +52,46 @@ func (driver *memoryCache) Put(key string, value any, ttl *time.Duration) error 
 	}
 
 	// Store data
-	driver.data[key] = memoryRecord{
+	m.data[key] = memoryRecord{
 		data:   value,
 		expiry: expiry,
 	}
 	return nil
 }
 
-func (driver *memoryCache) Set(key string, value any) (bool, error) {
+func (m *memoryCache) Set(key string, value any) (bool, error) {
 	// Check existence
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return false, nil
 	}
 
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Store data
 	record.data = value
-	driver.data[key] = *record
+	m.data[key] = *record
 	return true, nil
 }
 
-func (driver *memoryCache) Override(key string, value any, ttl *time.Duration) error {
-	ok, err := driver.Set(key, value)
+func (m *memoryCache) Override(key string, value any, ttl *time.Duration) error {
+	ok, err := m.Set(key, value)
 	if err != nil {
 		return err
 	}
 
 	if !ok {
-		return driver.Put(key, value, ttl)
+		return m.Put(key, value, ttl)
 	}
 
 	return nil
 }
 
-func (driver *memoryCache) Get(key string) (any, error) {
+func (m *memoryCache) Get(key string) (any, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return nil, nil
 	}
@@ -99,15 +99,15 @@ func (driver *memoryCache) Get(key string) (any, error) {
 	return record.data, nil
 }
 
-func (driver *memoryCache) Pull(key string) (any, error) {
+func (m *memoryCache) Pull(key string) (any, error) {
 	// Read
-	val, err := driver.Get(key)
+	val, err := m.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
 	// Delete
-	err = driver.Forget(key)
+	err = m.Forget(key)
 	if err != nil {
 		return nil, err
 	}
@@ -115,34 +115,30 @@ func (driver *memoryCache) Pull(key string) (any, error) {
 	return val, nil
 }
 
-func (driver *memoryCache) Cast(key string) (gocast.Caster, error) {
+func (m *memoryCache) Cast(key string) (gocast.Caster, error) {
 	// Read
-	val, err := driver.Get(key)
-	if err != nil {
-		return gocast.NewCaster(nil), err
-	}
-
-	return gocast.NewCaster(val), nil
+	val, err := m.Get(key)
+	return gocast.NewCaster(val), err
 }
 
-func (driver *memoryCache) Exists(key string) (bool, error) {
-	_, exists := driver.read(key)
+func (m *memoryCache) Exists(key string) (bool, error) {
+	_, exists := m.read(key)
 	return exists, nil
 }
 
-func (driver *memoryCache) Forget(key string) error {
+func (m *memoryCache) Forget(key string) error {
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Delete
-	delete(driver.data, key)
+	delete(m.data, key)
 	return nil
 }
 
-func (driver *memoryCache) TTL(key string) (time.Duration, error) {
+func (m *memoryCache) TTL(key string) (time.Duration, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return 0, nil
 	}
@@ -155,9 +151,9 @@ func (driver *memoryCache) TTL(key string) (time.Duration, error) {
 	}
 }
 
-func (driver *memoryCache) Increment(key string, value int64) (bool, error) {
+func (m *memoryCache) Increment(key string, value int64) (bool, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return false, nil
 	}
@@ -170,18 +166,18 @@ func (driver *memoryCache) Increment(key string, value int64) (bool, error) {
 	}
 
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Store
 	record.data = num + value
-	driver.data[key] = *record
+	m.data[key] = *record
 	return true, nil
 }
 
-func (driver *memoryCache) Decrement(key string, value int64) (bool, error) {
+func (m *memoryCache) Decrement(key string, value int64) (bool, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return false, nil
 	}
@@ -194,18 +190,18 @@ func (driver *memoryCache) Decrement(key string, value int64) (bool, error) {
 	}
 
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Store
 	record.data = num - value
-	driver.data[key] = *record
+	m.data[key] = *record
 	return true, nil
 }
 
-func (driver *memoryCache) IncrementFloat(key string, value float64) (bool, error) {
+func (m *memoryCache) IncrementFloat(key string, value float64) (bool, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return false, nil
 	}
@@ -218,18 +214,18 @@ func (driver *memoryCache) IncrementFloat(key string, value float64) (bool, erro
 	}
 
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Store
 	record.data = num + value
-	driver.data[key] = *record
+	m.data[key] = *record
 	return true, nil
 }
 
-func (driver *memoryCache) DecrementFloat(key string, value float64) (bool, error) {
+func (m *memoryCache) DecrementFloat(key string, value float64) (bool, error) {
 	// Read
-	record, exists := driver.read(key)
+	record, exists := m.read(key)
 	if !exists {
 		return false, nil
 	}
@@ -242,11 +238,11 @@ func (driver *memoryCache) DecrementFloat(key string, value float64) (bool, erro
 	}
 
 	// Safe race condition
-	driver.mutex.Lock()
-	defer driver.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// Store
 	record.data = num - value
-	driver.data[key] = *record
+	m.data[key] = *record
 	return true, nil
 }
